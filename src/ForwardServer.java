@@ -34,7 +34,7 @@ public class ForwardServer
     public static final String DEFAULTSERVERHOST = "localhost";
     public static final String PROGRAMNAME = "ForwardServer";
     private static Arguments arguments;
-
+    public static VerifyCertificate verifyCertificate = new VerifyCertificate();
 
     private ServerSocket handshakeSocket;
 
@@ -60,7 +60,7 @@ public class ForwardServer
         clientHello.recv(clientSocket);
         if(clientHello.getParameter("MessageType").equals("ClientHello")){
             VerifyCertificate verifyCertificate = new VerifyCertificate();
-            if (verifyCertificate.verifyCertificates(getCertificateFromEncodedString(clientHello.getParameter("Certificate")))){
+            if (verifyCertificate.verifyCertificates(verifyCertificate.getCertificateFromEncodedString(clientHello.getParameter("Certificate")))){
                 System.out.println("The client certificate is verified and signed by the CA");
             }else{
                 System.out.println("BAD Certificate, Closing Connection");
@@ -75,7 +75,7 @@ public class ForwardServer
             HandshakeMessage serverHello = new HandshakeMessage();
             serverHello.putParameter("MessageType", "ServerHello");
             //get encoded certificate and add it as parameter
-            serverHello.putParameter("Certificate", getEncodedServerCertificate("usercert"));
+            serverHello.putParameter("Certificate", verifyCertificate.getEncodedCertificate(arguments.get("usercert")));
             serverHello.send(clientSocket);
             System.out.println("GOOD SO FAR");
         }
@@ -103,22 +103,22 @@ public class ForwardServer
         targetHost = Handshake.targetHost;
         targetPort = Handshake.targetPort;
     }
-    public String getEncodedServerCertificate(String cert) throws CertificateException, FileNotFoundException {
-        try {
-            FileInputStream is = new FileInputStream(arguments.get(cert));
-            String encodedCert = Base64.getEncoder().encodeToString(is.toString().getBytes());
-            return encodedCert;
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
+//    public String getEncodedServerCertificate(String certPath) throws CertificateException, FileNotFoundException {
+//        try {
+//            FileInputStream is = new FileInputStream(arguments.get(certPath));
+//            String encodedCert = Base64.getEncoder().encodeToString(is.toString().getBytes());
+//            return encodedCert;
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        }
+//        return null;
+//    }
 
-    public X509Certificate getCertificateFromEncodedString(String certB64) throws CertificateException {
-        CertificateFactory fact = CertificateFactory.getInstance("X.509");
-        InputStream is = new ByteArrayInputStream(certB64.getBytes());
-        return (X509Certificate) fact.generateCertificate(is);
-    }
+//    public X509Certificate getCertificateFromEncodedString(String certB64) throws CertificateException {
+//        CertificateFactory fact = CertificateFactory.getInstance("X.509");
+//        InputStream is = new ByteArrayInputStream(certB64.getBytes());
+//        return (X509Certificate) fact.generateCertificate(is);
+//    }
 
 
     /**

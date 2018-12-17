@@ -35,6 +35,7 @@ public class ForwardClient
     public static final int DEFAULTSERVERPORT = 2206;
     public static final String DEFAULTSERVERHOST = "localhost";
     public static final String PROGRAMNAME = "ForwardClient";
+    public static VerifyCertificate verifyCertificate = new VerifyCertificate();
 
     private static Arguments arguments;
     private static int serverPort;
@@ -52,7 +53,7 @@ public class ForwardClient
         HandshakeMessage clientHello = new HandshakeMessage();
         clientHello.putParameter("MessageType", "ClientHello");
         //get encoded certificate and add it as parameter
-        String encodedUserCertificate = getEncodedCertificate(arguments.get("usercert"));
+        String encodedUserCertificate = verifyCertificate.getEncodedCertificate(arguments.get("usercert"));
         if(encodedUserCertificate!=null){
             System.out.println(encodedUserCertificate);
             clientHello.putParameter("Certificate", encodedUserCertificate);
@@ -70,7 +71,7 @@ public class ForwardClient
         /*Check the message parameters and verify the servers certificate*/
         if(serverHello.getParameter("MessageType").equals("ServerHello")){
             VerifyCertificate verifyCertificate = new VerifyCertificate();
-            if (verifyCertificate.verifyCertificates(getCertificateFromEncodedString(clientHello.getParameter("Certificate")))){
+            if (verifyCertificate.verifyCertificates(verifyCertificate.getCertificateFromEncodedString(clientHello.getParameter("Certificate")))){
                 System.out.println("The server certificate is verified and signed by the CA");
             }else{
                 System.err.println("BAD Certificate, Closing Connection..");
@@ -98,29 +99,6 @@ public class ForwardClient
         serverPort = Handshake.serverPort;
     }
 
-    /*get encoded string certificate from path argument*/
-    public static String getEncodedCertificate(String certPath) throws Exception {
-        CertificateFactory fact = CertificateFactory.getInstance("X.509");
-        FileInputStream CAIs = new FileInputStream(certPath);
-        X509Certificate certificate = (X509Certificate) fact.generateCertificate(CAIs);
-
-        String LINE_SEPARATOR = System.getProperty("line.separator");
-        String BEGIN_CERT = "-----BEGIN CERTIFICATE-----";
-        String END_CERT = "-----END CERTIFICATE-----";
-
-        Base64.Encoder encoder = Base64.getMimeEncoder(64, LINE_SEPARATOR.getBytes());
-
-        byte[] rawCrtText = certificate.getEncoded();
-        String encodedCertText = new String(encoder.encode(rawCrtText));
-        return BEGIN_CERT + LINE_SEPARATOR + encodedCertText + LINE_SEPARATOR + END_CERT;
-    }
-
-    public static X509Certificate getCertificateFromEncodedString(String cert) throws CertificateException {
-        CertificateFactory fact = CertificateFactory.getInstance("X.509");
-        InputStream is = new ByteArrayInputStream(cert.getBytes());
-        X509Certificate certificate = (X509Certificate) fact.generateCertificate(is);
-        return certificate;
-    }
 
     /*
      * Let user know that we are waiting
