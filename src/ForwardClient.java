@@ -14,7 +14,7 @@
  */
 
 
-import java.io.FileNotFoundException;
+import java.io.*;
 import java.lang.AssertionError;
 import java.lang.IllegalArgumentException;
 import java.lang.Integer;
@@ -27,8 +27,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.io.IOException;
-import java.io.FileInputStream;
+import java.util.Base64;
 
 public class ForwardClient
 {
@@ -41,7 +40,7 @@ public class ForwardClient
     private static int serverPort;
     private static String serverHost;
 
-    private static void doHandshake() throws IOException {
+    private static void doHandshake() throws Exception {
 
         /* Connect to forward server server */
         System.out.println("Connect to " +  arguments.get("handshakehost") + ":" + Integer.parseInt(arguments.get("handshakeport")));
@@ -53,8 +52,9 @@ public class ForwardClient
         HandshakeMessage clientHello = new HandshakeMessage();
         clientHello.putParameter("MessageType", "ClientHello");
         //get encoded certificate and add it as parameter
-        String encodedUserCertificate = getEncodedCertificate();
+        String encodedUserCertificate = getEncodedCertificate(arguments.get("usercert"));
         if(encodedUserCertificate!=null){
+            System.out.println(encodedUserCertificate);
             clientHello.putParameter("Certificate", encodedUserCertificate);
             clientHello.send(socket);
         }else {
@@ -68,7 +68,19 @@ public class ForwardClient
         HandshakeMessage serverHello = new HandshakeMessage();
         serverHello.recv(socket);
         /*Check the message parameters and verify the servers certificate*/
-
+        if(serverHello.getParameter("MessageType").equals("ServerHello")){
+            VerifyCertificate verifyCertificate = new VerifyCertificate();
+            if (verifyCertificate.verifyCertificates(getCertificateFromEncodedString(clientHello.getParameter("Certificate")))){
+                System.out.println("The server certificate is verified and signed by the CA");
+            }else{
+                System.err.println("BAD Certificate, Closing Connection..");
+                socket.close();
+            }
+        }else {
+            System.err.println("message type wasn't ServerHello, Closing Connection..");
+            socket.close();
+        }
+        System.out.println("GOOD SO FAR");
 
         socket.close();
 
@@ -86,20 +98,28 @@ public class ForwardClient
         serverPort = Handshake.serverPort;
     }
 
-    public static String getEncodedCertificate(){
-        try {
-            CertificateFactory fact = CertificateFactory.getInstance("X.509");
-            FileInputStream is = new FileInputStream("/Users/mataymarani/Desktop/extendedVPN/private/user.pem");
-            X509Certificate cer = (X509Certificate) fact.generateCertificate(is);
-            return cer.getEncoded().toString();
-        } catch (CertificateEncodingException e) {
-            e.printStackTrace();
-        } catch (CertificateException e) {
-            e.printStackTrace();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        return null;
+    /*get encoded string certificate from path argument*/
+    public static String getEncodedCertificate(String certPath) throws Exception {
+        CertificateFactory fact = CertificateFactory.getInstance("X.509");
+        FileInputStream CAIs = new FileInputStream(certPath);
+        X509Certificate certificate = (X509Certificate) fact.generateCertificate(CAIs);
+
+        String LINE_SEPARATOR = System.getProperty("line.separator");
+        String BEGIN_CERT = "-----BEGIN CERTIFICATE-----";
+        String END_CERT = "-----END CERTIFICATE-----";
+
+        Base64.Encoder encoder = Base64.getMimeEncoder(64, LINE_SEPARATOR.getBytes());
+
+        byte[] rawCrtText = certificate.getEncoded();
+        String encodedCertText = new String(encoder.encode(rawCrtText));
+        return BEGIN_CERT + LINE_SEPARATOR + encodedCertText + LINE_SEPARATOR + END_CERT;
+    }
+
+    public static X509Certificate getCertificateFromEncodedString(String cert) throws CertificateException {
+        CertificateFactory fact = CertificateFactory.getInstance("X.509");
+        InputStream is = new ByteArrayInputStream(cert.getBytes());
+        X509Certificate certificate = (X509Certificate) fact.generateCertificate(is);
+        return certificate;
     }
 
     /*
@@ -116,7 +136,7 @@ public class ForwardClient
      * Run handshake negotiation, then set up a listening socket and wait for user.
      * When user has connected, start port forwarder thread.
      */
-    static public void startForwardClient() throws IOException {
+    static public void startForwardClient() throws Exception {
 
         doHandshake();
 
@@ -194,7 +214,7 @@ public class ForwardClient
         }
         try {
             startForwardClient();
-        } catch(IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
