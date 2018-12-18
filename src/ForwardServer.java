@@ -27,6 +27,8 @@ import java.util.Base64;
 import java.util.Properties;
 import java.util.StringTokenizer;
 
+import static java.lang.Integer.parseInt;
+
 public class ForwardServer
 {
     private static final boolean ENABLE_LOGGING = true;
@@ -34,8 +36,7 @@ public class ForwardServer
     public static final String DEFAULTSERVERHOST = "localhost";
     public static final String PROGRAMNAME = "ForwardServer";
     private static Arguments arguments;
-    public static VerifyCertificate verifyCertificate = new VerifyCertificate();
-
+    static String ENCODING = "UTF-8";
     private ServerSocket handshakeSocket;
 
     private ServerSocket listenSocket;
@@ -50,6 +51,7 @@ public class ForwardServer
 
         Socket clientSocket = handshakeSocket.accept();
         String clientHostPort = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
+        X509Certificate clientCertificate = null;
         Logger.log("Incoming handshake . from " + clientHostPort);
 
         /* This is where the handshake should take place */
@@ -59,8 +61,8 @@ public class ForwardServer
         HandshakeMessage clientHello = new HandshakeMessage();
         clientHello.recv(clientSocket);
         if(clientHello.getParameter("MessageType").equals("ClientHello")){
-            VerifyCertificate verifyCertificate = new VerifyCertificate();
-            if (verifyCertificate.verifyCertificates(verifyCertificate.getCertificateFromEncodedString(clientHello.getParameter("Certificate")))){
+            clientCertificate = VerifyCertificate.getCertificateFromEncodedString(clientHello.getParameter("Certificate"));
+            if (VerifyCertificate.verifyCertificates(clientCertificate)){
                 System.out.println("The client certificate is verified and signed by the CA");
             }else{
                 System.out.println("BAD Certificate, Closing Connection");
@@ -75,11 +77,45 @@ public class ForwardServer
             HandshakeMessage serverHello = new HandshakeMessage();
             serverHello.putParameter("MessageType", "ServerHello");
             //get encoded certificate and add it as parameter
-            serverHello.putParameter("Certificate", verifyCertificate.getEncodedCertificate(arguments.get("usercert")));
+            serverHello.putParameter("Certificate", VerifyCertificate.getEncodedCertificate(arguments.get("usercert")));
             serverHello.send(clientSocket);
-            System.out.println("GOOD SO FAR");
+            System.out.println("Client and server Hello done");
         }
 
+        /*wait for the Forward Message and examine it */
+        HandshakeMessage forwardMessage = new HandshakeMessage();
+        forwardMessage.recv(clientSocket);
+        boolean forwardDone = false;
+        //This is static for this project but for generality
+        if(forwardMessage.getParameter("MessageType").equals("Forward")){
+            System.out.println("Recieved Forward Message!");
+            Handshake.targetHost = forwardMessage.getParameter("TargetHost");
+            Handshake.targetPort = parseInt(forwardMessage.getParameter("TargetPort"));
+            forwardDone = true;
+        }else{
+            System.out.println("Message type incorrect, Should be Forward!, closing connection...");
+            clientSocket.close();
+        }
+
+        /*if we accept the forwardMessage we send back the final SessionMessage */
+        if (forwardDone){
+            HandshakeMessage sessionMessage = new HandshakeMessage();
+            sessionMessage.putParameter("MessageType", 	"Session");
+            //create session key and iv
+            SessionKey sessionKey = new SessionKey(128);
+            SessionIV sessionIV = new SessionIV();
+            String sessionKeyB64 = sessionKey.encodeKey();
+            String sessionIVB64 = sessionIV.encodeIV();
+            //encrypt them with client public key and encode the output in base64
+            String encryptedSessionKey = Base64.getEncoder().encodeToString(HandshakeCrypto.encrypt(sessionKeyB64.getBytes(ENCODING), clientCertificate.getPublicKey()));
+            String encryptedSessionIV = Base64.getEncoder().encodeToString(HandshakeCrypto.encrypt(sessionIVB64.getBytes(ENCODING), clientCertificate.getPublicKey()));
+            sessionMessage.putParameter("SessionKey"	, encryptedSessionKey);
+            sessionMessage.putParameter("SessionIV"	, encryptedSessionIV);
+            sessionMessage.putParameter("ServerHost", Handshake.serverHost);
+            sessionMessage.putParameter("ServerPort", Integer.toString(Handshake.serverPort));
+            sessionMessage.send(clientSocket);
+            System.out.println("Sent Session Message!");
+        }
 
         clientSocket.close();
 
@@ -96,37 +132,20 @@ public class ForwardServer
          */
         listenSocket = new ServerSocket();
         listenSocket.bind(new InetSocketAddress(Handshake.serverHost, Handshake.serverPort));
-
         /* The final destination. The ForwardServer sets up port forwarding
          * between the listensocket (ie., ServerHost/ServerPort) and the target.
          */
         targetHost = Handshake.targetHost;
         targetPort = Handshake.targetPort;
+
     }
-//    public String getEncodedServerCertificate(String certPath) throws CertificateException, FileNotFoundException {
-//        try {
-//            FileInputStream is = new FileInputStream(arguments.get(certPath));
-//            String encodedCert = Base64.getEncoder().encodeToString(is.toString().getBytes());
-//            return encodedCert;
-//        } catch (FileNotFoundException e) {
-//            e.printStackTrace();
-//        }
-//        return null;
-//    }
-
-//    public X509Certificate getCertificateFromEncodedString(String certB64) throws CertificateException {
-//        CertificateFactory fact = CertificateFactory.getInstance("X.509");
-//        InputStream is = new ByteArrayInputStream(certB64.getBytes());
-//        return (X509Certificate) fact.generateCertificate(is);
-//    }
-
 
     /**
      * Starts the forward server - binds on a given port and starts serving
      */
     public void startForwardServer() throws Exception {
         // Bind server on given TCP port
-        int port = Integer.parseInt(arguments.get("handshakeport"));
+        int port = parseInt(arguments.get("handshakeport"));
         try {
             handshakeSocket = new ServerSocket(port);
         } catch (IOException ioe) {
@@ -192,9 +211,5 @@ public class ForwardServer
         }
     }
 
-//    public String encodeCertificate(Certificate X509Certifacte) throws CertificateEncodingException {
-//        String encodedCertificate = X509Certifacte.getEncoded().toString();
-//        return encodedCertificate;
-//    }
 
 }

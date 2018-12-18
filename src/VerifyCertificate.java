@@ -15,7 +15,7 @@ public class VerifyCertificate {
     public static boolean verifyCertificates(X509Certificate verifyCer) throws FileNotFoundException, CertificateException {
         // check dates
         fact = CertificateFactory.getInstance("X.509");
-        caFile = new FileInputStream("/Users/mataymarani/Desktop/VPN-Project/private/CACertificate.pem");
+        caFile = new FileInputStream("/Users/mataymarani/Desktop/VPN-Project/private/ca.pem");
         caCer = (X509Certificate) fact.generateCertificate(caFile);
         caCerPublicKey = caCer.getPublicKey();
         try{

@@ -18,10 +18,13 @@ import java.io.*;
 import java.lang.AssertionError;
 import java.lang.IllegalArgumentException;
 import java.lang.Integer;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -35,11 +38,12 @@ public class ForwardClient
     public static final int DEFAULTSERVERPORT = 2206;
     public static final String DEFAULTSERVERHOST = "localhost";
     public static final String PROGRAMNAME = "ForwardClient";
-    public static VerifyCertificate verifyCertificate = new VerifyCertificate();
-
     private static Arguments arguments;
     private static int serverPort;
     private static String serverHost;
+    private static PrivateKey clientPrivateKey;
+    static String ENCODING = "UTF-8";
+
 
     private static void doHandshake() throws Exception {
 
@@ -53,7 +57,7 @@ public class ForwardClient
         HandshakeMessage clientHello = new HandshakeMessage();
         clientHello.putParameter("MessageType", "ClientHello");
         //get encoded certificate and add it as parameter
-        String encodedUserCertificate = verifyCertificate.getEncodedCertificate(arguments.get("usercert"));
+        String encodedUserCertificate = VerifyCertificate.getEncodedCertificate(arguments.get("usercert"));
         if(encodedUserCertificate!=null){
             System.out.println(encodedUserCertificate);
             clientHello.putParameter("Certificate", encodedUserCertificate);
@@ -69,10 +73,11 @@ public class ForwardClient
         HandshakeMessage serverHello = new HandshakeMessage();
         serverHello.recv(socket);
         /*Check the message parameters and verify the servers certificate*/
+        boolean verified = false;
         if(serverHello.getParameter("MessageType").equals("ServerHello")){
-            VerifyCertificate verifyCertificate = new VerifyCertificate();
-            if (verifyCertificate.verifyCertificates(verifyCertificate.getCertificateFromEncodedString(clientHello.getParameter("Certificate")))){
+            if (VerifyCertificate.verifyCertificates(VerifyCertificate.getCertificateFromEncodedString(clientHello.getParameter("Certificate")))){
                 System.out.println("The server certificate is verified and signed by the CA");
+                verified = true;
             }else{
                 System.err.println("BAD Certificate, Closing Connection..");
                 socket.close();
@@ -81,7 +86,38 @@ public class ForwardClient
             System.err.println("message type wasn't ServerHello, Closing Connection..");
             socket.close();
         }
-        System.out.println("GOOD SO FAR");
+        System.out.println("Client and server Hello done");
+
+        /*if we verified successfully we move on to the ForwardMessage*/
+        if(verified){
+            HandshakeMessage forwardMessage = new HandshakeMessage();
+            forwardMessage.putParameter("MessageType", 	"Forward");
+            forwardMessage.putParameter("TargetHost"	, Handshake.targetHost);
+            forwardMessage.putParameter("TargetPort", Integer.toString(Handshake.targetPort));
+            forwardMessage.send(socket);
+            System.out.println("sent The ForwardMessage...");
+        }
+        /*Wait for the final server to respond with their SessionMessage and check the parameters*/
+        System.out.println("Waiting for serverHello msg...");
+        HandshakeMessage sessionMessage = new HandshakeMessage();
+        sessionMessage.recv(socket);
+        if(sessionMessage.getParameter("MessageType").equals("Session")){
+            System.out.println("Recieved The SessionMessage...");
+            //get the encrypted session key and iv and decode + decrypt them
+            clientPrivateKey = HandshakeCrypto.getPrivateKeyFromKeyFile(arguments.get("key"));
+            byte[] sessionKeybytes = HandshakeCrypto.decrypt(Base64.getDecoder().decode(sessionMessage.getParameter("SessionKey")), clientPrivateKey);
+            byte[] sessionIV = HandshakeCrypto.decrypt(Base64.getDecoder().decode(sessionMessage.getParameter("SessionIV")), clientPrivateKey);
+            //get the java object from the bytes for the key
+            String sessionKeyEncodedString = new String(sessionKeybytes, ENCODING);
+            SessionKey sessionKey = new SessionKey(sessionKeyEncodedString); // gets a session key from it's encoded version
+            //Start the session
+            System.out.println("Handshake complete! Closing this connection and Starting session...");
+            socket.close();
+            startSession(sessionKey, sessionIV);
+        } else {
+            System.out.println("Wrong messageType, Should be Session, closing connection...");
+            socket.close();
+        }
 
         socket.close();
 
@@ -109,6 +145,9 @@ public class ForwardClient
                 InetAddress.getLocalHost().getHostAddress() + ":" + listensocket.getLocalPort());
     }
 
+    public static void startSession(SessionKey sessionKey, byte[] sessionIV){
+
+    }
     /*
      * Set up client forwarder.
      * Run handshake negotiation, then set up a listening socket and wait for user.
