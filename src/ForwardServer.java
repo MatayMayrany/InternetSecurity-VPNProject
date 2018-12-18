@@ -39,6 +39,16 @@ public class ForwardServer
     static String ENCODING = "UTF-8";
     private ServerSocket handshakeSocket;
 
+    private static final String MESSAGETYPE = "MessageType";
+    private static final String CERTIFCATE = "Certificate";
+    private static final String CLIENTHELLO = "ClientHello";
+    private static final String SERVERTHELLO = "ServerHello";
+    private static final String FORWARD = "Forward";
+    private static final String SESSION = "Session";
+    private static final String SESSION_KEY = "SessionKey";
+    private static final String SESSION_IV = "SessionIV";
+    private static final String TARGET_HOST = "TargetHost";
+    private static final String TARGET_PORT = "TargetPort";
     private ServerSocket listenSocket;
     private String targetHost;
     private int targetPort;
@@ -60,8 +70,8 @@ public class ForwardServer
         System.out.println("Waiting for clientHello msg...");
         HandshakeMessage clientHello = new HandshakeMessage();
         clientHello.recv(clientSocket);
-        if(clientHello.getParameter("MessageType").equals("ClientHello")){
-            clientCertificate = VerifyCertificate.getCertificateFromEncodedString(clientHello.getParameter("Certificate"));
+        if(clientHello.getParameter(MESSAGETYPE).equals(CLIENTHELLO)){
+            clientCertificate = VerifyCertificate.getCertificateFromEncodedString(clientHello.getParameter(CERTIFCATE));
             if (VerifyCertificate.verifyCertificates(clientCertificate)){
                 System.out.println("The client certificate is verified and signed by the CA");
             }else{
@@ -103,14 +113,18 @@ public class ForwardServer
             sessionMessage.putParameter("MessageType", 	"Session");
             //create session key and iv
             SessionKey sessionKey = new SessionKey(128);
-            SessionIV sessionIV = new SessionIV();
             String sessionKeyB64 = sessionKey.encodeKey();
+
+            SessionIV sessionIV = new SessionIV();
             String sessionIVB64 = sessionIV.encodeIV();
-            //encrypt them with client public key and encode the output in base64
-            String encryptedSessionKey = Base64.getEncoder().encodeToString(HandshakeCrypto.encrypt(sessionKeyB64.getBytes(ENCODING), clientCertificate.getPublicKey()));
-            String encryptedSessionIV = Base64.getEncoder().encodeToString(HandshakeCrypto.encrypt(sessionIVB64.getBytes(ENCODING), clientCertificate.getPublicKey()));
-            sessionMessage.putParameter("SessionKey"	, encryptedSessionKey);
-            sessionMessage.putParameter("SessionIV"	, encryptedSessionIV);
+
+            //encrypt key and IV with client public key
+            byte[] encryptedSessionKey = HandshakeCrypto.encrypt(sessionKeyB64.getBytes(ENCODING), clientCertificate.getPublicKey());
+
+            byte[] encryptedSessionIV = HandshakeCrypto.encrypt(sessionIVB64.getBytes(ENCODING), clientCertificate.getPublicKey());
+
+            sessionMessage.putParameter("SessionKey"	, Base64.getEncoder().encodeToString(encryptedSessionKey));
+            sessionMessage.putParameter("SessionIV"	, Base64.getEncoder().encodeToString(encryptedSessionIV));
             sessionMessage.putParameter("ServerHost", Handshake.serverHost);
             sessionMessage.putParameter("ServerPort", Integer.toString(Handshake.serverPort));
             sessionMessage.send(clientSocket);
