@@ -14,19 +14,13 @@
  */
 
 import java.io.*;
-import java.lang.AssertionError;
 import java.lang.Integer;
 import java.security.cert.*;
-import java.util.ArrayList;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Base64;
-import java.util.Properties;
-import java.util.StringTokenizer;
-
 import static java.lang.Integer.parseInt;
 
 public class ForwardServer

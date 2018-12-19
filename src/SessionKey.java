@@ -2,8 +2,6 @@ import java.util.Base64;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.security.KeyStore;
-import java.security.SecureRandom;
 import java.security.NoSuchAlgorithmException;
 
 public class SessionKey {

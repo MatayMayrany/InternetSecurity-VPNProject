@@ -22,8 +22,4 @@ public class SessionIV {
         return Base64.getEncoder().encodeToString(iv);
     }
 
-//    public byte[] decodeIV(byte[] iv){
-//        return Base64.getDecoder().decode(iv);
-//    }
-
 }

@@ -5,11 +5,9 @@
  * is stopped and the parent thread is notified to close all its connections.
  */
 
-import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.spec.IvParameterSpec;
 import java.io.*;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -37,9 +35,6 @@ public class ForwardThread extends Thread
         this.cryptoFlag = crypto;
         this.sessionEncrypter = new SessionEncrypter(sessionKey, sessionIV);
         this.sessionDecrypter = new SessionDecrypter(sessionKey.encodeKey(), sessionIV.encodeIV());
-        System.out.println(sessionIV.encodeIV() + " \n " + sessionKey.encodeKey());
-        System.out.println("Initialized Forward Thread");
-
     }
 
     /**
@@ -51,7 +46,6 @@ public class ForwardThread extends Thread
     {
         byte[] buffer = new byte[READ_BUFFER_SIZE];
         try {
-            System.out.println("we are running!!!");
             /* See whether we are encrypting or decrypting*/
             if (cryptoFlag == 1){
                 while (true) {
@@ -76,10 +70,7 @@ public class ForwardThread extends Thread
             }else {
                 System.out.println("False CryptoMode!!!");
             }
-
-        } catch (IOException e) {} catch (InvalidAlgorithmParameterException e) {
-            e.printStackTrace();
-        } catch (InvalidKeyException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         System.out.println("we are done");

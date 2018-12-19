@@ -134,11 +134,8 @@ public class ForwardServerClientThread extends Thread
                 serverForward = new ForwardThread(this, serverIn, clientOut, sessionKey, sessionIV, 2);
             }
 
-            System.out.println("Created Threads!!!!");
             mBothConnectionsAreAlive = true;
-            System.out.println("Starting Client run Threads!!!!");
             clientForward.start();
-            System.out.println("Starting server run Threads!!!!");
             serverForward.start();
         } catch (Exception e) {
             e.printStackTrace();

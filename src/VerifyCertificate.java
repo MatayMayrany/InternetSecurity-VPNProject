@@ -12,10 +12,13 @@ public class VerifyCertificate {
     public static X509Certificate caCer;
     public static PublicKey caCerPublicKey;
 
+    public static String currentDirectory = System.getProperty("user.dir");
+
+
     public static boolean verifyCertificates(X509Certificate verifyCer) throws FileNotFoundException, CertificateException {
         // check dates
         fact = CertificateFactory.getInstance("X.509");
-        caFile = new FileInputStream("/Users/mataymarani/Desktop/VPN-Project/private/ca.pem");
+        caFile = new FileInputStream(currentDirectory + "/ca.pem");
         caCer = (X509Certificate) fact.generateCertificate(caFile);
         caCerPublicKey = caCer.getPublicKey();
         try{
