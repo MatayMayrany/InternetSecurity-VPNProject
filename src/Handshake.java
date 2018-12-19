@@ -8,4 +8,12 @@ public class Handshake {
     /* The final destination */
     public static String targetHost = "localhost";
     public static int targetPort = 6789;
+
+    private SessionKey sessionKey;
+    private SessionIV sessionIV;
+
+    public Handshake(SessionKey sessionKey, SessionIV sessionIV){
+        this.sessionKey = sessionKey;
+        this.sessionIV = sessionIV;
+    }
 }

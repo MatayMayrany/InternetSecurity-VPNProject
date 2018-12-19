@@ -5,28 +5,41 @@
  * is stopped and the parent thread is notified to close all its connections.
  */
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
+import java.io.*;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
 public class ForwardThread extends Thread
 {
     private static final int READ_BUFFER_SIZE = 8192;
 
-    InputStream mInputStream = null;
-    OutputStream mOutputStream = null;
+    InputStream mInputStream;
+    OutputStream mOutputStream;
+    ForwardServerClientThread mParent;
+    private int cryptoFlag = 0;
 
-    ForwardServerClientThread mParent = null;
-
+    private SessionEncrypter sessionEncrypter;
+    private SessionDecrypter sessionDecrypter;
     /**
      * Creates a new traffic forward thread specifying its input stream,
      * output stream and parent thread
      */
-    public ForwardThread(ForwardServerClientThread aParent, InputStream aInputStream, OutputStream aOutputStream)
-    {
+    public ForwardThread(ForwardServerClientThread aParent, InputStream aInputStream, OutputStream aOutputStream, SessionKey sessionKey, SessionIV sessionIV, int crypto) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidAlgorithmParameterException, InvalidKeyException {
         mInputStream = aInputStream;
-        mOutputStream = aOutputStream;
+        mOutputStream =  aOutputStream;
         mParent = aParent;
+        this.cryptoFlag = crypto;
+        this.sessionEncrypter = new SessionEncrypter(sessionKey, sessionIV);
+        this.sessionDecrypter = new SessionDecrypter(sessionKey.encodeKey(), sessionIV.encodeIV());
+        System.out.println(sessionIV.encodeIV() + " \n " + sessionKey.encodeKey());
+        System.out.println("Initialized Forward Thread");
+
     }
 
     /**
@@ -38,15 +51,38 @@ public class ForwardThread extends Thread
     {
         byte[] buffer = new byte[READ_BUFFER_SIZE];
         try {
-            while (true) {
-                int bytesRead = mInputStream.read(buffer);
-                if (bytesRead == -1)
-                    break; // End of stream is reached --> exit the thread
-                mOutputStream.write(buffer, 0, bytesRead);
+            System.out.println("we are running!!!");
+            /* See whether we are encrypting or decrypting*/
+            if (cryptoFlag == 1){
+                while (true) {
+                    System.out.println("ENCRYPTING");
+                    int bytesRead = mInputStream.read(buffer);
+                    if (bytesRead == -1)
+                        break;
+                    CipherOutputStream cryptOut =  this.sessionEncrypter.openCipherOutputStream(mOutputStream);
+                    System.out.println(new String(buffer, "UTF-8"));
+                    cryptOut.write(buffer, 0, bytesRead);
+                }
+            } else if (cryptoFlag == 2){
+                while (true) {
+                    CipherInputStream cryptIn = this.sessionDecrypter.openCipherInputStream(mInputStream);
+                    System.out.println("Decrypting");
+                    int bytesRead = cryptIn.read(buffer);
+                    if (bytesRead == -1)
+                        break;
+                    System.out.println(new String(buffer, "UTF-8"));
+                    mOutputStream.write(buffer, 0, bytesRead);
+                }
+            }else {
+                System.out.println("False CryptoMode!!!");
             }
-        } catch (IOException e) {
-            // Read/write failed --> connection is broken --> exit the thread
+
+        } catch (IOException e) {} catch (InvalidAlgorithmParameterException e) {
+            e.printStackTrace();
+        } catch (InvalidKeyException e) {
+            e.printStackTrace();
         }
+        System.out.println("we are done");
 
         // Notify parent thread that the connection is broken and forwarding should stop
         mParent.connectionBroken();

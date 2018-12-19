@@ -9,17 +9,10 @@ import java.security.NoSuchAlgorithmException;
 public class SessionKey {
 
     SecretKey secretKey;
-    String secretKeyString;
-    KeyGenerator keyGenerator = null;
 
-    public SessionKey(int keyLength){
-        try{
-            keyGenerator = KeyGenerator.getInstance("AES");
-        } catch (NoSuchAlgorithmException noSuchAlgorithmException){
-            noSuchAlgorithmException.printStackTrace();
-        }
+    public SessionKey(int keyLength) throws NoSuchAlgorithmException {
+        KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
         keyGenerator.init(keyLength);
-
         secretKey = keyGenerator.generateKey();
     }
 

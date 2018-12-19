@@ -39,6 +39,9 @@ public class ForwardServer
     static String ENCODING = "UTF-8";
     private ServerSocket handshakeSocket;
 
+    private static SessionIV sessionIV;
+    private static SessionKey sessionKey;
+
     private static final String MESSAGETYPE = "MessageType";
     private static final String CERTIFCATE = "Certificate";
     private static final String CLIENTHELLO = "ClientHello";
@@ -85,9 +88,9 @@ public class ForwardServer
         /*Send back the server hello if the connection still exists*/
         if (clientSocket.isConnected()){
             HandshakeMessage serverHello = new HandshakeMessage();
-            serverHello.putParameter("MessageType", "ServerHello");
+            serverHello.putParameter(MESSAGETYPE, SERVERTHELLO);
             //get encoded certificate and add it as parameter
-            serverHello.putParameter("Certificate", VerifyCertificate.getEncodedCertificate(arguments.get("usercert")));
+            serverHello.putParameter(CERTIFCATE, VerifyCertificate.getEncodedCertificate(arguments.get("usercert")));
             serverHello.send(clientSocket);
             System.out.println("Client and server Hello done");
         }
@@ -97,10 +100,10 @@ public class ForwardServer
         forwardMessage.recv(clientSocket);
         boolean forwardDone = false;
         //This is static for this project but for generality
-        if(forwardMessage.getParameter("MessageType").equals("Forward")){
+        if(forwardMessage.getParameter(MESSAGETYPE).equals(FORWARD)){
             System.out.println("Recieved Forward Message!");
-            Handshake.targetHost = forwardMessage.getParameter("TargetHost");
-            Handshake.targetPort = parseInt(forwardMessage.getParameter("TargetPort"));
+            Handshake.targetHost = forwardMessage.getParameter(TARGET_HOST);
+            Handshake.targetPort = parseInt(forwardMessage.getParameter(TARGET_PORT));
             forwardDone = true;
         }else{
             System.out.println("Message type incorrect, Should be Forward!, closing connection...");
@@ -110,21 +113,22 @@ public class ForwardServer
         /*if we accept the forwardMessage we send back the final SessionMessage */
         if (forwardDone){
             HandshakeMessage sessionMessage = new HandshakeMessage();
-            sessionMessage.putParameter("MessageType", 	"Session");
+            sessionMessage.putParameter(MESSAGETYPE, 	SESSION);
             //create session key and iv
-            SessionKey sessionKey = new SessionKey(128);
+            sessionKey = new SessionKey(128);
             String sessionKeyB64 = sessionKey.encodeKey();
 
-            SessionIV sessionIV = new SessionIV();
+            sessionIV = new SessionIV();
             String sessionIVB64 = sessionIV.encodeIV();
+          // System.out.println(sessionIV.encodeIV() + "    \n" + sessionKey.encodeKey());
 
             //encrypt key and IV with client public key
             byte[] encryptedSessionKey = HandshakeCrypto.encrypt(sessionKeyB64.getBytes(ENCODING), clientCertificate.getPublicKey());
 
             byte[] encryptedSessionIV = HandshakeCrypto.encrypt(sessionIVB64.getBytes(ENCODING), clientCertificate.getPublicKey());
 
-            sessionMessage.putParameter("SessionKey"	, Base64.getEncoder().encodeToString(encryptedSessionKey));
-            sessionMessage.putParameter("SessionIV"	, Base64.getEncoder().encodeToString(encryptedSessionIV));
+            sessionMessage.putParameter(SESSION_KEY	, Base64.getEncoder().encodeToString(encryptedSessionKey));
+            sessionMessage.putParameter(SESSION_IV	, Base64.getEncoder().encodeToString(encryptedSessionIV));
             sessionMessage.putParameter("ServerHost", Handshake.serverHost);
             sessionMessage.putParameter("ServerPort", Integer.toString(Handshake.serverPort));
             sessionMessage.send(clientSocket);
@@ -172,10 +176,9 @@ public class ForwardServer
         while(true) {
             ForwardServerClientThread forwardThread;
             try {
-
                 doHandshake();
-
-                forwardThread = new ForwardServerClientThread(this.listenSocket, this.targetHost, this.targetPort);
+                //send the threads that will be handling the forwarding of data the Key and IV for encryption
+                forwardThread = new ForwardServerClientThread(this.listenSocket, this.targetHost, this.targetPort, sessionKey, sessionIV);
                 forwardThread.start();
             } catch (IOException e) {
                 throw e;

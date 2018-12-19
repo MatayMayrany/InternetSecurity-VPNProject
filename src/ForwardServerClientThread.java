@@ -21,9 +21,11 @@ import java.net.SocketException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.NoSuchAlgorithmException;
 
 import javax.crypto.CipherOutputStream;
 import javax.crypto.CipherInputStream;
+import javax.crypto.NoSuchPaddingException;
 
 public class ForwardServerClientThread extends Thread
 {
@@ -36,14 +38,19 @@ public class ForwardServerClientThread extends Thread
     private String mServerHostPort;
     private int mServerPort;
     private String mServerHost;
+    private SessionKey sessionKey;
+    private SessionIV sessionIV;
+    public boolean weAreInForwardServer = false;
 
     /**
      * Creates a client thread for handling clients of NakovForwardServer.
      * A client socket should be connected and passed to this constructor.
      * A server socket is created later by run() method.
      */
-    public ForwardServerClientThread(Socket aClientSocket, String serverhost, int serverport)
+    public ForwardServerClientThread(Socket aClientSocket, String serverhost, int serverport, SessionKey sessionKey1, SessionIV sessionIV1)
     {
+        sessionKey = sessionKey1;
+        sessionIV = sessionIV1;
         mClientSocket = aClientSocket;
         mServerPort = serverport;
         mServerHost = serverhost;
@@ -54,8 +61,10 @@ public class ForwardServerClientThread extends Thread
      * Wait for client to connect on client listening socket.
      * A server socket is created later by run() method.
      */
-    public ForwardServerClientThread(ServerSocket listensocket, String serverhost, int serverport) throws IOException
+    public ForwardServerClientThread(ServerSocket listensocket, String serverhost, int serverport, SessionKey sessionKey1, SessionIV sessionIV1) throws IOException
     {
+        sessionKey = sessionKey1;
+        sessionIV = sessionIV1;
         mListenSocket = listensocket;
         //mServerHost =  listensocket.getInetAddress().getHostAddress();
         mServerPort = serverport;
@@ -78,16 +87,19 @@ public class ForwardServerClientThread extends Thread
     public void run()
     {
         try {
+            System.out.println("StartingForwardClientThread run method");
 
             // Wait for incoming connection on listen socket, if there is one
             if (mListenSocket != null) {
                 mClientSocket = mListenSocket.accept();
+                System.out.println("Created Client Socket");
                 mClientHostPort = mClientSocket.getInetAddress().getHostAddress() + ":" + mClientSocket.getPort();
                 Logger.log("Accepted from  " + mServerPort + " <--> " + mClientHostPort + "  started.");
-
+                weAreInForwardServer = true;
             }
             else {
                 mClientHostPort = mClientSocket.getInetAddress().getHostAddress() + ":" + mClientSocket.getPort();
+                //on client side
             }
 
             try {
@@ -104,20 +116,34 @@ public class ForwardServerClientThread extends Thread
             OutputStream clientOut = mClientSocket.getOutputStream();
             InputStream serverIn = mServerSocket.getInputStream();
             OutputStream serverOut = mServerSocket.getOutputStream();
+            System.out.println("Created Streams!!!!");
 
             mServerHostPort = mServerHost + ":" + mServerPort;
             Logger.log("TCP Forwarding  " + mClientHostPort + " <--> " + mServerHostPort + "  started.");
 
+            ForwardThread clientForward;
+            ForwardThread serverForward;
             // Start forwarding of socket data between server and client
-            ForwardThread clientForward = new ForwardThread(this, clientIn, serverOut);
-            ForwardThread serverForward = new ForwardThread(this, serverIn, clientOut);
-            mBothConnectionsAreAlive = true;
-            clientForward.start();
-            serverForward.start();
+            if(weAreInForwardServer){
+                //if we are in the server we encrypt from server to client (1) and decrypt other way (2).
+                clientForward = new ForwardThread(this, clientIn, serverOut, sessionKey, sessionIV, 2);
+                serverForward = new ForwardThread(this, serverIn, clientOut, sessionKey, sessionIV, 1);
+            }else {
+                //if we are in the client we encrypt from client to server and decrypt otherway around
+                clientForward = new ForwardThread(this, clientIn, serverOut, sessionKey, sessionIV, 1);
+                serverForward = new ForwardThread(this, serverIn, clientOut, sessionKey, sessionIV, 2);
+            }
 
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
+            System.out.println("Created Threads!!!!");
+            mBothConnectionsAreAlive = true;
+            System.out.println("Starting Client run Threads!!!!");
+            clientForward.start();
+            System.out.println("Starting server run Threads!!!!");
+            serverForward.start();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
     }
 
     /**

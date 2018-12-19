@@ -44,6 +44,8 @@ public class ForwardClient
     private static String serverHost;
     private static PrivateKey clientPrivateKey;
     static String ENCODING = "UTF-8";
+    public static SessionIV sessionIV1;
+    public static SessionKey sessionKey1;
 
 
     private static final String MESSAGETYPE = "MessageType";
@@ -74,47 +76,19 @@ public class ForwardClient
             System.err.println("Failed to send ClientHello, Closing Connection...");
             socket.close();
         }
-//        HandshakeMessage clientHello = new HandshakeMessage();
-//        clientHello.putParameter("MessageType", "ClientHello");
-//        //get encoded certificate and add it as parameter
-//        String encodedUserCertificate = VerifyCertificate.getEncodedCertificate(arguments.get("usercert"));
-//        if(encodedUserCertificate!=null){
-//            clientHello.putParameter("Certificate", encodedUserCertificate);
-//            clientHello.send(socket);
-//        }else {
-//            System.err.println("Couldn't get the certificate!");
-//            socket.close();
-//        }
 
         /*Wait for the server to respond with their own ServerHello message*/
 
         System.out.println("Waiting for serverHello msg...");
         HandshakeMessage serverHello = new HandshakeMessage();
         serverHello.recv(socket);
-        boolean serverHelloDone = validateServerHello(serverHello);
+
         /*Check the message parameters and verify the servers certificate*/
-//        boolean verified = false;
-//        if(serverHello.getParameter("MessageType").equals("ServerHello")){
-//            if (VerifyCertificate.verifyCertificates(VerifyCertificate.getCertificateFromEncodedString(serverHello.getParameter("Certificate")))){
-//                System.out.println("The server certificate is verified and signed by the CA");
-//                verified = true;
-//            }else{
-//                System.err.println("BAD Certificate, Closing Connection..");
-//                socket.close();
-//            }
-//        }else {
-//            System.err.println("message type wasn't ServerHello, Closing Connection..");
-//            socket.close();
-//        }
-//        System.out.println("Client and server Hello done");
+        boolean serverHelloDone = validateServerHello(serverHello);
 
         /*if we verified successfully we move on to the ForwardMessage*/
         if(serverHelloDone){
             HandshakeMessage forwardMessage = sendForwardMessage();
-//            HandshakeMessage forwardMessage = new HandshakeMessage();
-//            forwardMessage.putParameter(MESSAGETYPE, 	FORWARD);
-//            forwardMessage.putParameter(TARGET_HOST	, Handshake.targetHost);
-//            forwardMessage.putParameter(TARGET_PORT, Integer.toString(Handshake.targetPort));
             if (handshakeMessage!=null){
                 forwardMessage.send(socket);
                 System.out.println("sent The ForwardMessage...");
@@ -122,15 +96,17 @@ public class ForwardClient
                 System.err.println("Failed to send ForwardMessage, Closing Connection...");
                 socket.close();
             }
-
         }else {
             System.err.println("Failed to validate Server, Closing Connection...");
             socket.close();
         }
+
         /*Wait for the final server to respond with their SessionMessage and check the parameters*/
         System.out.println("Waiting for serverHello msg...");
         HandshakeMessage sessionMessage = new HandshakeMessage();
         sessionMessage.recv(socket);
+
+        /*inspect final message and get the sessionKey and sessionIV*/
         if(sessionMessage.getParameter(MESSAGETYPE).equals(SESSION)){
             System.out.println("Recieved The SessionMessage...");
             //get the encrypted session key and iv and decode + decrypt them
@@ -145,11 +121,11 @@ public class ForwardClient
 
             /* we get encrypted bytes and decrypt them*/
             String messageIV = sessionMessage.getParameter(SESSION_IV);
-            System.out.println(messageIV);
             byte[] encodedMessageBytes = Base64.getEncoder().encode(messageIV.getBytes());
             byte[] decodedMessageBytes = Base64.getDecoder().decode(encodedMessageBytes);
             byte[] DecryptedsessionIVbytes = HandshakeCrypto.decrypt(Base64.getDecoder().decode(decodedMessageBytes), clientPrivateKey);
             SessionIV sessionIV = new SessionIV(DecryptedsessionIVbytes);
+            //System.out.println(sessionIV.encodeIV() + "    \n" + sessionKey.encodeKey());
 
             //Start the session
             System.out.println("Handshake complete! Closing this connection and Starting session...");
@@ -159,8 +135,7 @@ public class ForwardClient
             System.out.println("Wrong messageType, Should be Session, closing connection...");
             socket.close();
         }
-
-        socket.close();
+        //socket.close();
 
         /*
          * Fake the handshake result with static parameters.
@@ -231,7 +206,7 @@ public class ForwardClient
 
 
     /*
-     * Let user know that we are waiting
+     * Let user know that where we are waiting for there connection and to where it will be forwarded
      */
     private static void tellUser(ServerSocket listensocket) throws UnknownHostException {
         System.out.println("Client forwarder to target " + arguments.get("targethost") + ":" + arguments.get("targetport"));
@@ -240,7 +215,8 @@ public class ForwardClient
     }
 
     public static void startSession(SessionKey sessionKey, SessionIV sessionIV){
-
+        sessionKey1 = sessionKey;
+        sessionIV1 = sessionIV;
     }
     /*
      * Set up client forwarder.
@@ -265,12 +241,13 @@ public class ForwardClient
             listensocket.bind(null);
             /* Tell the user, so the user knows where to connect */
             tellUser(listensocket);
-
+            //the data socket?
             Socket clientSocket = listensocket.accept();
+
             String clientHostPort = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
             log("Accepted client from " + clientHostPort);
 
-            forwardThread = new ForwardServerClientThread(clientSocket, serverHost, serverPort);
+            forwardThread = new ForwardServerClientThread(clientSocket, serverHost, serverPort, sessionKey1, sessionIV1);
             forwardThread.start();
 
         } catch (IOException e) {
@@ -328,5 +305,9 @@ public class ForwardClient
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static void printTest(SessionKey testSessionKey, SessionIV testSesstionIV){
+        System.out.println(testSessionKey + "\n" + testSesstionIV);
     }
 }
