@@ -49,13 +49,16 @@ public class ForwardThread extends Thread
             /* See whether we are encrypting or decrypting*/
             if (cryptoFlag == 1){
                 while (true) {
-                    System.out.println("ENCRYPTING");
                     int bytesRead = mInputStream.read(buffer);
                     if (bytesRead == -1)
                         break;
                     CipherOutputStream cryptOut =  this.sessionEncrypter.openCipherOutputStream(mOutputStream);
                     System.out.println(new String(buffer, "UTF-8"));
+                    System.out.println("ENCRYPTING");
+                    System.out.println(new String(buffer, "UTF-8"));
                     cryptOut.write(buffer, 0, bytesRead);
+                    System.out.println("Encrypted Bytes: ");
+                    System.out.println(buffer);
                 }
             } else if (cryptoFlag == 2){
                 while (true) {

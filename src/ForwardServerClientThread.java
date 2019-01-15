@@ -66,6 +66,7 @@ public class ForwardServerClientThread extends Thread
         sessionKey = sessionKey1;
         sessionIV = sessionIV1;
         mListenSocket = listensocket;
+        System.out.println(mListenSocket.toString());
         //mServerHost =  listensocket.getInetAddress().getHostAddress();
         mServerPort = serverport;
         mServerHost = serverhost;
@@ -103,12 +104,11 @@ public class ForwardServerClientThread extends Thread
             }
 
             try {
+                System.out.println(mServerHost + " " + mServerPort);
                 mServerSocket = new Socket(mServerHost, mServerPort);
             } catch (Exception e) {
                 System.out.println("Connection failed to " + mServerHost + ":" + mServerPort);
                 e.printStackTrace();
-                // Prints what exception has been thrown
-                System.out.println(e);
             }
 
             // Obtain input and output streams of server and client

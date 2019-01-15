@@ -24,6 +24,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Base64;
 
+import static java.lang.Integer.parseInt;
+
 public class ForwardClient
 {
     private static final boolean ENABLE_LOGGING = true;
@@ -34,11 +36,12 @@ public class ForwardClient
     public static HandshakeMessage handshakeMessage;
     private static int serverPort;
     private static String serverHost;
+    private static int targetPort;
+    private static String targetHost;
     private static PrivateKey clientPrivateKey;
     static String ENCODING = "UTF-8";
     public static SessionIV sessionIV1;
     public static SessionKey sessionKey1;
-
 
     private static final String MESSAGETYPE = "MessageType";
     private static final String CERTIFCATE = "Certificate";
@@ -188,6 +191,10 @@ public class ForwardClient
     /* Method for 3rd step, creates the ForwardMessage to send */
 
     public static HandshakeMessage sendForwardMessage(){
+//        targetHost = arguments.get("targethost");
+//        targetPort = parseInt(arguments.get("targetport"));
+        Handshake.targetHost = arguments.get("targethost");
+        Handshake.targetPort = parseInt(arguments.get("targetport"));
         handshakeMessage = new HandshakeMessage();
         handshakeMessage.putParameter(MESSAGETYPE, 	FORWARD);
         handshakeMessage.putParameter(TARGET_HOST	, Handshake.targetHost);
@@ -198,10 +205,9 @@ public class ForwardClient
 
 
     /*
-     * Let user know that where we are waiting for there connection and to where it will be forwarded
-     */
+java     */
     private static void tellUser(ServerSocket listensocket) throws UnknownHostException {
-        System.out.println("Client forwarder to target " + arguments.get("targethost") + ":" + arguments.get("targetport"));
+        System.out.println("Client forwarder to target " + Handshake.targetHost + ":" + Handshake.targetPort);
         System.out.println("Waiting for incoming connections at " +
                 InetAddress.getLocalHost().getHostAddress() + ":" + listensocket.getLocalPort());
     }
@@ -233,7 +239,7 @@ public class ForwardClient
             listensocket.bind(null);
             /* Tell the user, so the user knows where to connect */
             tellUser(listensocket);
-            //the data socket?
+
             Socket clientSocket = listensocket.accept();
 
             String clientHostPort = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();

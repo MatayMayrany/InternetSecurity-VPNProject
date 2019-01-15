@@ -98,6 +98,7 @@ public class ForwardServer
             System.out.println("Recieved Forward Message!");
             Handshake.targetHost = forwardMessage.getParameter(TARGET_HOST);
             Handshake.targetPort = parseInt(forwardMessage.getParameter(TARGET_PORT));
+            System.out.println("this should be localhost:9876 ------> " + Handshake.serverHost + ":" + Handshake.targetPort);
             forwardDone = true;
         }else{
             System.out.println("Message type incorrect, Should be Forward!, closing connection...");
