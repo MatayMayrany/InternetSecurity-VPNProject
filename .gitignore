@@ -1,5 +1,7 @@
 *.class
 *.iml
+*.der
+*.pem
 /.idea
 /private
 
