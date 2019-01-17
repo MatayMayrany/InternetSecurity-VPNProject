@@ -69,7 +69,7 @@ public class ForwardServer
         clientHello.recv(clientSocket);
         if(clientHello.getParameter(MESSAGETYPE).equals(CLIENTHELLO)){
             clientCertificate = VerifyCertificate.getCertificateFromEncodedString(clientHello.getParameter(CERTIFCATE));
-            if (VerifyCertificate.verifyCertificates(clientCertificate)){
+            if (VerifyCertificate.verifyCertificates(clientCertificate, arguments.get("cacert"))){
                 System.out.println("The client certificate is verified and signed by the CA");
             }else{
                 System.out.println("BAD Certificate, Closing Connection");

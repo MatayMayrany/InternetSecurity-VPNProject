@@ -98,7 +98,7 @@ public class ForwardClient
         }
 
         /*Wait for the final server to respond with their SessionMessage and check the parameters*/
-        System.out.println("Waiting for serverHello msg...");
+        System.out.println("Waiting for Session msg...");
         HandshakeMessage sessionMessage = new HandshakeMessage();
         sessionMessage.recv(socket);
 
@@ -176,7 +176,7 @@ public class ForwardClient
         boolean verified = false;
         if(serverHello.getParameter(MESSAGETYPE).equals(SERVERTHELLO)){
             try {
-                if (VerifyCertificate.verifyCertificates(VerifyCertificate.getCertificateFromEncodedString(serverHello.getParameter(CERTIFCATE)))){
+                if (VerifyCertificate.verifyCertificates(VerifyCertificate.getCertificateFromEncodedString(serverHello.getParameter(CERTIFCATE)), arguments.get("cacert"))){
                     System.out.println("The server certificate is verified and signed by the CA");
                     return true;
                 }else{

@@ -11,16 +11,18 @@ public class VerifyCertificate {
     public static FileInputStream caFile;
     public static X509Certificate caCer;
     public static PublicKey caCerPublicKey;
+    public static Arguments arguments;
     public static String LINE_SEPARATOR = System.getProperty("line.separator");
     public static String BEGIN_CERT = "-----BEGIN CERTIFICATE-----";
     public static String END_CERT = "-----END CERTIFICATE-----";
     public static String currentDirectory = System.getProperty("user.dir");
 
 
-    public static boolean verifyCertificates(X509Certificate verifyCer) throws FileNotFoundException, CertificateException {
+    public static boolean verifyCertificates(X509Certificate verifyCer, String caPath) throws FileNotFoundException, CertificateException {
         // check dates
         fact = CertificateFactory.getInstance("X.509");
-        caFile = new FileInputStream(currentDirectory + "/ca.pem");
+        caFile = new FileInputStream(currentDirectory + "/" + caPath);
+        //caFile = new FileInputStream(arguments.get("cacert"));
         caCer = (X509Certificate) fact.generateCertificate(caFile);
         caCerPublicKey = caCer.getPublicKey();
         try{
