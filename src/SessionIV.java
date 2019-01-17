@@ -11,7 +11,7 @@ public class SessionIV {
     }
 
     public SessionIV (byte[] iv){
-        this.iv = Base64.getDecoder().decode(iv);
+        this.iv = iv;
     }
 
     public IvParameterSpec getIvSpec(){

@@ -57,8 +57,6 @@ public class ForwardThread extends Thread
                     System.out.println("ENCRYPTING");
                     System.out.println(new String(buffer, "UTF-8"));
                     cryptOut.write(buffer, 0, bytesRead);
-                    System.out.println("Encrypted Bytes: ");
-                    System.out.println(buffer);
                 }
             } else if (cryptoFlag == 2){
                 while (true) {

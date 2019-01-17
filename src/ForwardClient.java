@@ -14,6 +14,7 @@
  */
 
 
+
 import java.io.*;
 import java.lang.IllegalArgumentException;
 import java.lang.Integer;
@@ -109,19 +110,21 @@ public class ForwardClient
 
             /* we need to do this to recieved key and iv
              decode with base64 to string -> decrypt with our private Key -> decode the SessionIv.encodeIV() */
-            String messageKey = sessionMessage.getParameter(SESSION_KEY);
-            byte[] sessionKeybytes = HandshakeCrypto.decrypt(Base64.getDecoder().decode(messageKey), clientPrivateKey);
-            String sessionKeyEncodedString = new String(sessionKeybytes, ENCODING);
-            SessionKey sessionKey = new SessionKey(sessionKeyEncodedString); // gets a session key from it's encoded version
+            String messageKeyEncodedAndEncrypted = sessionMessage.getParameter(SESSION_KEY);
+            byte[] messageKeyEncrypted = Base64.getDecoder().decode(messageKeyEncodedAndEncrypted);
+            byte[] sessionKeybytes = HandshakeCrypto.decrypt(messageKeyEncrypted, clientPrivateKey);
+            SessionKey sessionKey = new SessionKey(sessionKeybytes); // gets a session key from it's encoded version
 
             /* we get encrypted bytes and decrypt them*/
             String messageIV = sessionMessage.getParameter(SESSION_IV);
-            byte[] encodedMessageBytes = Base64.getEncoder().encode(messageIV.getBytes());
-            byte[] decodedMessageBytes = Base64.getDecoder().decode(encodedMessageBytes);
-            byte[] DecryptedsessionIVbytes = HandshakeCrypto.decrypt(Base64.getDecoder().decode(decodedMessageBytes), clientPrivateKey);
+            //byte[] encodedMessageBytes = Base64.getEncoder().encode(messageIV.getBytes());
+           // byte[] decodedMessageBytes = Base64.getDecoder().decode(encodedMessageBytes);
+            byte[] decodedIVBytes = Base64.getDecoder().decode(messageIV);
+            byte[] DecryptedsessionIVbytes = HandshakeCrypto.decrypt(decodedIVBytes, clientPrivateKey);
             SessionIV sessionIV = new SessionIV(DecryptedsessionIVbytes);
             //System.out.println(sessionIV.encodeIV() + "    \n" + sessionKey.encodeKey());
-
+            serverHost = sessionMessage.getParameter("ServerHost");
+            serverPort = parseInt(sessionMessage.getParameter("ServerPort"));
             //Start the session
             System.out.println("Handshake complete! Closing this connection and Starting session...");
             socket.close();
@@ -142,8 +145,8 @@ public class ForwardClient
          * to ForwardClient during the handshake (ServerHost, ServerPort parameters).
          * Here, we use a static address instead.
          */
-        serverHost = Handshake.serverHost;
-        serverPort = Handshake.serverPort;
+//        serverHost = Handshake.serverHost;
+//        serverPort = Handshake.serverPort;
     }
     /*method for creating the first message in the Handshake Protocol*/
 
