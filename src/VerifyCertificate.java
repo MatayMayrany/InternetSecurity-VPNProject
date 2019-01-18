@@ -16,10 +16,7 @@ public class VerifyCertificate {
 
     public static boolean verifyCertificates(X509Certificate verifyCer, String caPath) throws FileNotFoundException, CertificateException {
         // check dates and that it was signed by CA's PublicKey
-        fact = CertificateFactory.getInstance("X.509");
-        caFile = new FileInputStream(currentDirectory + "/" + caPath);
-        caCer = (X509Certificate) fact.generateCertificate(caFile);
-        caCerPublicKey = caCer.getPublicKey();
+        caCerPublicKey = HandshakeCrypto.getPublicKeyFromCertFile(currentDirectory + "/" + caPath);
         try{
             verifyCer.checkValidity();
             verifyCer.verify(caCerPublicKey);
