@@ -108,23 +108,26 @@ public class ForwardClient
             //get the encrypted session key and iv and decode + decrypt them
             clientPrivateKey = HandshakeCrypto.getPrivateKeyFromKeyFile(arguments.get("key"));
 
-            /* we need to do this to recieved key and iv
-             decode with base64 to string -> decrypt with our private Key -> decode the SessionIv.encodeIV() */
+            /* We need to decode then Decrypt the Recieved SecretKey and IV bytes
+            * Then create java objects using them*/
             String messageKeyEncodedAndEncrypted = sessionMessage.getParameter(SESSION_KEY);
             byte[] messageKeyEncrypted = Base64.getDecoder().decode(messageKeyEncodedAndEncrypted);
             byte[] sessionKeybytes = HandshakeCrypto.decrypt(messageKeyEncrypted, clientPrivateKey);
             SessionKey sessionKey = new SessionKey(sessionKeybytes); // gets a session key from it's encoded version
 
-            /* we get encrypted bytes and decrypt them*/
             String messageIV = sessionMessage.getParameter(SESSION_IV);
-            //byte[] encodedMessageBytes = Base64.getEncoder().encode(messageIV.getBytes());
-           // byte[] decodedMessageBytes = Base64.getDecoder().decode(encodedMessageBytes);
             byte[] decodedIVBytes = Base64.getDecoder().decode(messageIV);
             byte[] DecryptedsessionIVbytes = HandshakeCrypto.decrypt(decodedIVBytes, clientPrivateKey);
             SessionIV sessionIV = new SessionIV(DecryptedsessionIVbytes);
-            //System.out.println(sessionIV.encodeIV() + "    \n" + sessionKey.encodeKey());
+
+            /* We get the ServerHost and ServerPort from the session message
+             * This is to where the ForwardClient should connect.
+             * The ForwardServer creates a socket
+             * dynamically and communicates the address (hostname and port number)
+             * to ForwardClient during the handshake (ServerHost, ServerPort parameters).*/
             serverHost = sessionMessage.getParameter("ServerHost");
             serverPort = parseInt(sessionMessage.getParameter("ServerPort"));
+
             //Start the session
             System.out.println("Handshake complete! Closing this connection and Starting session...");
             socket.close();
@@ -133,23 +136,10 @@ public class ForwardClient
             System.out.println("Wrong messageType, Should be Session, closing connection...");
             socket.close();
         }
-        //socket.close();
 
-        /*
-         * Fake the handshake result with static parameters.
-         */
-
-        /* This is to where the ForwardClient should connect.
-         * The ForwardServer creates a socket
-         * dynamically and communicates the address (hostname and port number)
-         * to ForwardClient during the handshake (ServerHost, ServerPort parameters).
-         * Here, we use a static address instead.
-         */
-//        serverHost = Handshake.serverHost;
-//        serverPort = Handshake.serverPort;
     }
-    /*method for creating the first message in the Handshake Protocol*/
 
+    /*method for creating the first message in the Handshake Protocol*/
     public static HandshakeMessage sendClientHelloMessage(){
         handshakeMessage = new HandshakeMessage();
         handshakeMessage.putParameter(MESSAGETYPE, CLIENTHELLO);
@@ -173,7 +163,6 @@ public class ForwardClient
 
     public static boolean validateServerHello(HandshakeMessage serverHello){
         /*Check the message parameters and verify the servers certificate*/
-        boolean verified = false;
         if(serverHello.getParameter(MESSAGETYPE).equals(SERVERTHELLO)){
             try {
                 if (VerifyCertificate.verifyCertificates(VerifyCertificate.getCertificateFromEncodedString(serverHello.getParameter(CERTIFCATE)), arguments.get("cacert"))){
@@ -194,8 +183,7 @@ public class ForwardClient
     /* Method for 3rd step, creates the ForwardMessage to send */
 
     public static HandshakeMessage sendForwardMessage(){
-//        targetHost = arguments.get("targethost");
-//        targetPort = parseInt(arguments.get("targetport"));
+        /* TargetHost and Port are taken from the arguments and sent to the server so it knows where to forward us*/
         Handshake.targetHost = arguments.get("targethost");
         Handshake.targetPort = parseInt(arguments.get("targetport"));
         handshakeMessage = new HandshakeMessage();

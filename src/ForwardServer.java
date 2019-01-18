@@ -55,7 +55,6 @@ public class ForwardServer
      * target host/port, etc.
      */
     private void doHandshake() throws UnknownHostException, IOException, Exception {
-
         Socket clientSocket = handshakeSocket.accept();
         String clientHostPort = clientSocket.getInetAddress().getHostAddress() + ":" + clientSocket.getPort();
         X509Certificate clientCertificate = null;
@@ -96,7 +95,6 @@ public class ForwardServer
         //This is static for this project but for generality
         if(forwardMessage.getParameter(MESSAGETYPE).equals(FORWARD)){
             System.out.println("Recieved Forward Message!");
-            System.out.println("this should be localhost:9876 ------> " + Handshake.serverHost + ":" + Handshake.targetPort);
             Handshake.targetHost = forwardMessage.getParameter(TARGET_HOST);
             Handshake.targetPort = parseInt(forwardMessage.getParameter(TARGET_PORT));
             forwardDone = true;
@@ -111,21 +109,13 @@ public class ForwardServer
             sessionMessage.putParameter(MESSAGETYPE, 	SESSION);
             //create session key and iv
             sessionKey = new SessionKey(128);
-//            String sessionKeyB64 = sessionKey.encodeKey();
-
             sessionIV = new SessionIV();
-//            String sessionIVB64 = sessionIV.encodeIV();
-            System.out.println(sessionIV.encodeIV() + "    \n" + sessionKey.encodeKey());
 
             //encrypt key and IV with client public key
             byte[] encryptedSessionKey = HandshakeCrypto.encrypt(sessionKey.secretKey.getEncoded(), clientCertificate.getPublicKey());
-
             byte[] encryptedSessionIV = HandshakeCrypto.encrypt(sessionIV.getIvSpec().getIV(), clientCertificate.getPublicKey());
 
-//            byte[] encryptedSessionKey = HandshakeCrypto.encrypt(sessionKey.secretKey.getEncoded(), clientCertificate.getPublicKey());
-//
-//            byte[] encryptedSessionIV = HandshakeCrypto.encrypt(sessionIV.getIvSpec().getIV(), clientCertificate.getPublicKey());
-
+            //Put all the needed parameters
             sessionMessage.putParameter(SESSION_KEY	, Base64.getEncoder().encodeToString(encryptedSessionKey));
             sessionMessage.putParameter(SESSION_IV	, Base64.getEncoder().encodeToString(encryptedSessionIV));
             sessionMessage.putParameter("ServerHost", Handshake.serverHost);

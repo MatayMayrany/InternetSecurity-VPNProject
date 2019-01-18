@@ -1,11 +1,11 @@
+
+import com.sun.org.apache.xerces.internal.impl.dv.util.Base64;
+
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -47,9 +47,28 @@ public class HandshakeCrypto {
     public static PrivateKey getPrivateKeyFromKeyFile(String filePath) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException, CertificateException, NoSuchProviderException {
         Path path = Paths.get(filePath);
         byte[] privKeyBytes = Files.readAllBytes(path);
+        // Change pem files to der encoding so we can make a java object
+        String type = getFileExtension(filePath);
+        if (type.equals("pem")){
+            String temp = new String(privKeyBytes);
+            String privKeyPEM = temp.replace("-----BEGIN PRIVATE KEY-----\n", "");
+            privKeyPEM = privKeyPEM.replace("-----END PRIVATE KEY-----", "");
+            Base64 b64 = new Base64();
+            privKeyBytes = b64.decode(privKeyPEM);
+
+        }
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(privKeyBytes);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PrivateKey privateKey = keyFactory.generatePrivate(keySpec);
         return privateKey;
     }
+
+    public static String getFileExtension(String fullName) {
+        String fileName = new File(fullName).getName();
+        int dotIndex = fileName.lastIndexOf('.');
+        return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
+    }
+
+
+
 }

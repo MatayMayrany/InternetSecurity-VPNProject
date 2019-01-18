@@ -2,11 +2,11 @@ public class Handshake {
     /* Static data -- replace with handshake! */
 
     /* Where the client forwarder forwards data from  */
-    public static final String serverHost = "130.229.130.21";
-    public static final int serverPort = 4000;
+    public static final String serverHost = "localhost";
+    public static final int serverPort = 2206;
 
     /* The final destination */
-    public static String targetHost = "130.229.130.21";
+    public static String targetHost = "localhost";
     public static int targetPort = 6789;
 
     public SessionKey sessionKey;
