@@ -21,4 +21,4 @@ Connect a netcat to the client's forward port that it specifies in the logs of i
 
 You should then be able to write text between the two netcats.
 
-Test the encryption is working by looking at the ForwardThread file and uncomment the block of code specified in the file.
+Test the encryption is working by commenting out the decryption portion of the code in the forwardThread class.
